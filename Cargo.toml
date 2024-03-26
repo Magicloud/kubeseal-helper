@@ -1,0 +1,20 @@
+[package]
+name = "kubeseal-helper"
+version = "2024.3.25"
+edition = "2021"
+
+[[bin]]
+name = "ksher"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "z"
+panic = "abort"
+
+[dependencies]
+anyhow = { version = "*" }
+clap = { version = "*", features = ["derive", "env"] }
+passwords = { version = "*" }
