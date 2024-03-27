@@ -1,10 +1,18 @@
 use anyhow::{anyhow, Result};
+use clap::error::ErrorKind;
 use clap::*;
 use std::io::Write;
 use std::process as p;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    if cli.secret_name.is_none() {
+        Cli::command().error(
+            ErrorKind::MissingRequiredArgument,
+            "the following required arguments were not provided:\n  \x1b[32m--secret-name <SECRET_NAME>\x1b[0m"
+        ).exit();
+    }
+    let secret_name = cli.secret_name.unwrap();
 
     let pg = passwords::PasswordGenerator {
         length: cli.secret_length.into(),
@@ -33,7 +41,7 @@ type: kubernetes.io/basic-auth
 "#,
                 username,
                 pg.generate_one().map_err(|e| anyhow!("{e}"))?,
-                cli.secret_name,
+                secret_name,
                 cli.secret_namespace
             )
         }
@@ -63,11 +71,11 @@ enum SubCmd {
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(short('s'), long)]
-    secret_name: String,
-    #[arg(short('n'), long, default_value = "default")]
+    #[arg(short('s'), long, global = true)]
+    secret_name: Option<String>,
+    #[arg(short('n'), long, global = true, default_value = "default")]
     secret_namespace: String,
-    #[arg(short('l'), long, default_value = "16")]
+    #[arg(short('l'), long, global = true, default_value = "16")]
     secret_length: u8,
 
     #[command(subcommand)]
