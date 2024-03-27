@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     };
 
     let manifest = match cli.cmd {
-        SubCmd::PgSql { username } => {
+        SubCmd::UserPass { username } => {
             format!(
                 r#"
 apiVersion: v1
@@ -63,7 +63,7 @@ type: kubernetes.io/basic-auth
 #[derive(Subcommand)]
 #[command(rename_all = "lower")]
 enum SubCmd {
-    PgSql {
+    UserPass {
         #[arg(short, long)]
         username: String,
     },
