@@ -1,6 +1,6 @@
 [package]
 name = "kubeseal-helper"
-version = "2024.3.25"
+version = "2024.10.30"
 edition = "2021"
 
 [[bin]]
@@ -18,3 +18,4 @@ panic = "abort"
 anyhow = { version = "*" }
 clap = { version = "*", features = ["derive", "env"] }
 passwords = { version = "*" }
+base64-stream = { version = "*" }

@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
+use base64_stream::ToBase64Reader;
 use clap::error::ErrorKind;
 use clap::*;
-use std::io::Write;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::process as p;
 
 fn main() -> Result<()> {
@@ -12,10 +15,10 @@ fn main() -> Result<()> {
             "the following required arguments were not provided:\n  \x1b[32m--secret-name <SECRET_NAME>\x1b[0m"
         ).exit();
     }
-    let secret_name = cli.secret_name.unwrap();
+    let secret_name = cli.secret_name.unwrap(); // handled above
 
     let pg = passwords::PasswordGenerator {
-        length: cli.secret_length.into(),
+        length: cli.generated_secret_length.into(),
         numbers: true,
         lowercase_letters: true,
         uppercase_letters: true,
@@ -45,6 +48,48 @@ type: kubernetes.io/basic-auth
                 cli.secret_namespace
             )
         }
+        SubCmd::File { file } => {
+            let base64 = base64(&file)?;
+            format!(
+                r#"
+apiVersion: v1
+data:
+  "{}": {}
+kind: Secret
+metadata:
+  name: {}
+  namespace: {}
+type: Opaque
+"#,
+                file.file_name()
+                    .ok_or(anyhow!(
+                        "Cannot extract filename from {}",
+                        file.to_string_lossy()
+                    ))?
+                    .to_string_lossy(),
+                base64,
+                secret_name,
+                cli.secret_namespace
+            )
+        }
+        SubCmd::Tls { crt, key } => {
+            let crt_data = base64(&crt)?;
+            let key_data = base64(&key)?;
+            format!(
+                r#"
+apiVersion: v1
+data:
+  tls.crt: {}
+  tls.key: {}
+kind: Secret
+metadata:
+  name: {}
+  namespace: {}
+type: kubernetes.io/tls
+"#,
+                crt_data, key_data, secret_name, cli.secret_namespace
+            )
+        }
     };
 
     let mut kubeseal = p::Command::new("kubeseal")
@@ -64,8 +109,16 @@ type: kubernetes.io/basic-auth
 #[command(rename_all = "lower")]
 enum SubCmd {
     UserPass {
-        #[arg(short, long)]
         username: String,
+    },
+    File {
+        file: PathBuf,
+    },
+    Tls {
+        #[arg(short, long)]
+        crt: PathBuf,
+        #[arg(short, long)]
+        key: PathBuf,
     },
 }
 
@@ -76,8 +129,16 @@ struct Cli {
     #[arg(short('n'), long, global = true, default_value = "default")]
     secret_namespace: String,
     #[arg(short('l'), long, global = true, default_value = "16")]
-    secret_length: u8,
+    generated_secret_length: u8,
 
     #[command(subcommand)]
     cmd: SubCmd,
+}
+
+fn base64(file: &PathBuf) -> Result<String> {
+    let f = File::open(&file)?;
+    let mut encoder = ToBase64Reader::new(f);
+    let mut base64 = String::new();
+    encoder.read_to_string(&mut base64)?;
+    Ok(base64)
 }
