@@ -4,7 +4,7 @@ use clap::error::ErrorKind;
 use clap::*;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process as p;
 
 fn main() -> Result<()> {
@@ -29,20 +29,26 @@ fn main() -> Result<()> {
     };
 
     let manifest = match cli.cmd {
-        SubCmd::UserPass { username } => {
+        SubCmd::UserPass {
+            username,
+            alter_username_key,
+            alter_password_key,
+        } => {
             format!(
                 r#"
 apiVersion: v1
 stringData:
-  username: {}
-  password: {}
+  {}: {}
+  {}: {}
 kind: Secret
 metadata:
   name: {}
   namespace: {}
 type: kubernetes.io/basic-auth
 "#,
+                alter_username_key.unwrap_or("username".to_string()),
                 username,
+                alter_password_key.unwrap_or("password".to_string()),
                 pg.generate_one().map_err(|e| anyhow!("{e}"))?,
                 secret_name,
                 cli.secret_namespace
@@ -110,6 +116,8 @@ type: kubernetes.io/tls
 enum SubCmd {
     UserPass {
         username: String,
+        alter_username_key: Option<String>,
+        alter_password_key: Option<String>,
     },
     File {
         file: PathBuf,
@@ -135,7 +143,7 @@ struct Cli {
     cmd: SubCmd,
 }
 
-fn base64(file: &PathBuf) -> Result<String> {
+fn base64(file: &Path) -> Result<String> {
     let f = File::open(&file)?;
     let mut encoder = ToBase64Reader::new(f);
     let mut base64 = String::new();
