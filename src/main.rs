@@ -4,7 +4,7 @@ use clap::error::ErrorKind;
 use clap::*;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process as p;
 
 fn main() -> Result<()> {
@@ -90,6 +90,31 @@ type: kubernetes.io/tls
                 crt_data, key_data, secret_name, cli.secret_namespace
             )
         }
+        SubCmd::AlterUserPass {
+            username,
+            alter_username_key,
+            alter_password_key,
+        } => {
+            format!(
+                r#"
+apiVersion: v1
+stringData:
+  {}: {}
+  {}: {}
+kind: Secret
+metadata:
+  name: {}
+  namespace: {}
+type: Opaque
+"#,
+                alter_username_key,
+                username,
+                alter_password_key,
+                pg.generate_one().map_err(|e| anyhow!("{e}"))?,
+                secret_name,
+                cli.secret_namespace
+            )
+        }
     };
 
     let mut kubeseal = p::Command::new("kubeseal")
@@ -120,6 +145,11 @@ enum SubCmd {
         #[arg(short, long)]
         key: PathBuf,
     },
+    AlterUserPass {
+        username: String,
+        alter_username_key: String,
+        alter_password_key: String,
+    },
 }
 
 #[derive(Parser)]
@@ -135,7 +165,7 @@ struct Cli {
     cmd: SubCmd,
 }
 
-fn base64(file: &PathBuf) -> Result<String> {
+fn base64(file: &Path) -> Result<String> {
     let f = File::open(&file)?;
     let mut encoder = ToBase64Reader::new(f);
     let mut base64 = String::new();

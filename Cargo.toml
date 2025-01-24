@@ -1,6 +1,6 @@
 [package]
 name = "kubeseal-helper"
-version = "2024.10.30"
+version = "2025.1.24"
 edition = "2021"
 
 [[bin]]
