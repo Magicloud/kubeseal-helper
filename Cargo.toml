@@ -1,7 +1,8 @@
 [package]
 name = "kubeseal-helper"
-version = "2025.1.24"
-edition = "2021"
+version = "2025.1.28"
+edition = "2024"
+# rust-version = "1.85"
 
 [[bin]]
 name = "ksher"
