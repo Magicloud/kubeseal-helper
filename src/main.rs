@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use base64_stream::ToBase64Reader;
 use clap::error::ErrorKind;
 use clap::*;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Read, Write, stdin};
 use std::path::{Path, PathBuf};
 use std::process as p;
 
@@ -27,6 +27,13 @@ fn main() -> Result<()> {
         exclude_similar_characters: true,
         strict: true,
     };
+    let secret = if cli.read_stdin {
+        let mut buf = String::new();
+        stdin().read_line(&mut buf)?;
+        buf
+    } else {
+        pg.generate_one().map_err(|e| anyhow!("{e}"))?
+    };
 
     let manifest = match cli.cmd {
         SubCmd::UserPass { username } => {
@@ -42,10 +49,7 @@ metadata:
   namespace: {}
 type: kubernetes.io/basic-auth
 "#,
-                username,
-                pg.generate_one().map_err(|e| anyhow!("{e}"))?,
-                secret_name,
-                cli.secret_namespace
+                username, secret, secret_name, cli.secret_namespace
             )
         }
         SubCmd::File { file } => {
@@ -110,7 +114,7 @@ type: Opaque
                 alter_username_key,
                 username,
                 alter_password_key,
-                pg.generate_one().map_err(|e| anyhow!("{e}"))?,
+                secret,
                 secret_name,
                 cli.secret_namespace
             )
@@ -160,6 +164,8 @@ struct Cli {
     secret_namespace: String,
     #[arg(short('l'), long, global = true, default_value = "16")]
     generated_secret_length: u8,
+    #[arg(short, long, global = true, default_value = "false")]
+    read_stdin: bool,
 
     #[command(subcommand)]
     cmd: SubCmd,
